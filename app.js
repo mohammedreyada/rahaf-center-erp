@@ -5,6 +5,7 @@ const compression = require('compression');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 // Utils & Middlewares
 const ApiError = require('./src/utils/ApiError');
@@ -25,7 +26,11 @@ const userRoutes = require('./src/routes/user.routes');
 const reportRoutes = require('./src/routes/report.routes');
 const stockRoutes = require('./src/routes/stock.routes');
 const notificationRoutes = require('./src/routes/notification.routes');
+
 const app = express();
+
+// خلي Express يثق في Proxy بتاع الاستضافة (عشان express-rate-limit يشتغل صح على Render)
+app.set('trust proxy', 1);
 
 // Security & Parsing Middlewares
 app.use(helmet());
@@ -33,6 +38,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(compression());
+
+// عرض فولدر الصور للمتصفح
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Logger
 if (process.env.NODE_ENV === 'development') {
@@ -73,6 +81,7 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/stock', stockRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+
 // Send back a 404 error for any unknown API request
 app.use((req, res, next) => {
   next(new ApiError(404, 'Not found'));
