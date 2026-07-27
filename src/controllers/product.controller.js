@@ -1,13 +1,34 @@
 const Product = require('../models/Product');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
+const Setting = require('../models/Setting');
+const { sendNotification } = require('../sockets/notification.socket');
 
 // @desc    Create a new product
 // @route   POST /api/v1/products
 // @access  Private (Admin/Manager/Inventory)
 exports.createProduct = async (req, res, next) => {
   try {
+    // لو فيه صورة اترفعت، نحط مسارها، لو مفيش نخليه فاضي
+    if (req.file) {
+      req.body.image = `/uploads/${req.file.filename}`;
+    } else {
+      req.body.image = '';
+    }
+
     const product = await Product.create(req.body);
+
+    // إشعار لو المنتج اتضاف ومخزونه قليل من البداية
+    const settings = await Setting.findOne();
+    const threshold = settings ? settings.lowStockThreshold : 5;
+    if (product.stockQuantity <= threshold) {
+      await sendNotification(
+        null, 'admin', 'Low Stock Alert', 
+        `${product.name} is running low on stock (${product.stockQuantity} left).`, 
+        'warning', '/products'
+      );
+    }
+
     res.status(201).json(new ApiResponse(201, product, 'Product created successfully'));
   } catch (error) {
     next(error);
@@ -19,7 +40,6 @@ exports.createProduct = async (req, res, next) => {
 // @access  Private
 exports.getProducts = async (req, res, next) => {
   try {
-    // بحث بسيط بالاسم أو الباركود
     const query = {};
     if (req.query.search) {
       query.$or = [
@@ -32,7 +52,7 @@ exports.getProducts = async (req, res, next) => {
     }
 
     const products = await Product.find(query)
-      .populate('category', 'name') // جلب اسم القسم فقط
+      .populate('category', 'name')
       .sort({ createdAt: -1 });
 
     res.status(200).json(new ApiResponse(200, products));
@@ -61,13 +81,32 @@ exports.getProduct = async (req, res, next) => {
 // @access  Private (Admin/Manager/Inventory)
 exports.updateProduct = async (req, res, next) => {
   try {
+    // لو فيه صورة اترفعت، نحط مسارها
+    if (req.file) {
+      req.body.image = `/uploads/${req.file.filename}`;
+    } else if (req.body.image && typeof req.body.image === 'object') {
+      // لو مفيش صورة جديدة والقيمة الجاية object فاضي، نحذفها عشان سيب القديمة
+      delete req.body.image;
+    }
+
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-      new: true, // يرجع المنتج بعد التعديل
-      runValidators: true, // يشغل التحققات بتاعة الموديل
+      new: true,
+      runValidators: true,
     });
 
     if (!product) {
       return next(new ApiError(404, 'Product not found'));
+    }
+
+    // إشعار لو مخزون المنتج بقى أقل من الحد المسموح بعد التعديل
+    const settings = await Setting.findOne();
+    const threshold = settings ? settings.lowStockThreshold : 5;
+    if (product.stockQuantity <= threshold) {
+      await sendNotification(
+        null, 'admin', 'Low Stock Alert', 
+        `${product.name} is running low on stock (${product.stockQuantity} left).`, 
+        'warning', '/products'
+      );
     }
 
     res.status(200).json(new ApiResponse(200, product, 'Product updated successfully'));
