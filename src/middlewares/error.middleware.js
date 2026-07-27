@@ -17,16 +17,15 @@ const errorHandler = (err, req, res, next) => {
     message = 'Internal Server Error';
   }
 
+  // طباعة الخطأ بالتفصيل في الـ Logs عشان نقدر نشوفه على Render
+  console.error('ERROR 💥:', err);
+
   const response = {
     success: false,
     code: statusCode,
     message,
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   };
-
-  if (process.env.NODE_ENV === 'development') {
-    console.error(err);
-  }
 
   res.status(statusCode).json(response);
 };

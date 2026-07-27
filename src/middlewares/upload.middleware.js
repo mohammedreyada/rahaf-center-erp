@@ -2,8 +2,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// التأكد من وجود مجلد uploads، لو مش موجود يعمله واحد
-const uploadDir = path.join(__dirname, '../../uploads');
+// استخدام process.cwd() عشان يخزن الصور جوه مجلد المشروع نفسه على Render
+const uploadDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
