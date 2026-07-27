@@ -39,7 +39,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(compression());
 
-// عرض فولدر الصور للمتصفح
+// عرض فولدر الصور للمتصفح (مهم جداً عشان الصور تظهر)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Logger
@@ -57,6 +57,7 @@ app.use(cors({
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
+  validate: { xForwardedForHeader: false },
   message: 'Too many requests from this IP, please try again after 15 minutes',
 });
 app.use('/api', limiter);
