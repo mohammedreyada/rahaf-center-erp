@@ -2,7 +2,13 @@ const ApiError = require('../utils/ApiError');
 
 const errorConverter = (err, req, res, next) => {
   let error = err;
-  if (!(error instanceof ApiError)) {
+  
+  // معالجة خطأ تكرار البيانات (Duplicate Key Error)
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue)[0];
+    const message = `${field.charAt(0).toUpperCase() + field.slice(1)} already exists. Please use a different one.`;
+    error = new ApiError(400, message, true, err.stack);
+  } else if (!(error instanceof ApiError)) {
     const statusCode = error.statusCode || 500;
     const message = error.message || 'Internal Server Error';
     error = new ApiError(statusCode, message, false, err.stack);
@@ -17,7 +23,6 @@ const errorHandler = (err, req, res, next) => {
     message = 'Internal Server Error';
   }
 
-  // طباعة الخطأ بالتفصيل في الـ Logs عشان نقدر نشوفه على Render
   console.error('ERROR 💥:', err);
 
   const response = {
